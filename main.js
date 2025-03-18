@@ -1,4 +1,4 @@
-// Modified main.js to show Karma Ratio instead of account age.
+// Modified main.js to show Karma Ratio with color highlighting (green to red).
 // Derived from https://github.com/Mothrakk/NRMT
 
 const seenUsers = {};
@@ -108,10 +108,13 @@ function processUser(username, userElement) {
             })
             .then((data) => {
                 // Extract karma values from the JSON response
-                const linkKarma = data.data.link_karma;
-                const commentKarma = data.data.comment_karma;
+                const linkKarma = data?.data?.link_karma ?? 0;
+                const commentKarma = data?.data?.comment_karma ?? 0;
                 // Compute the ratio; if comment karma is zero, display "N/A"
-                let ratio = commentKarma === 0 ? 'N/A' : (linkKarma / commentKarma).toFixed(2);
+                let ratio = (commentKarma === 0)
+                    ? 'N/A'
+                    : (linkKarma / commentKarma).toFixed(2);
+
                 createKarmaNode(username, ratio);
             })
             .catch((error) => {
@@ -120,13 +123,52 @@ function processUser(username, userElement) {
     }
 }
 
+/**
+ * Creates the highlight node for the karma ratio and sets the color from green to red.
+ */
 function createKarmaNode(username, ratio) {
     const node = document.createElement('span');
     node.appendChild(document.createTextNode(`Karma Ratio: ${ratio}`));
-    // Apply basic styling; modify as desired
-    node.setAttribute('style', 'padding: 2px; margin: 3px; font-weight: bold;');
+
+    // Convert ratio to a float if not 'N/A'
+    const ratioValue = parseFloat(ratio);
+    const highlightColor = getColorForRatio(ratioValue);
+
+    // We'll use background color for highlighting and white text for readability
+    node.setAttribute('style', `
+        background-color: ${highlightColor};
+        color: #fff;
+        padding: 2px;
+        margin: 3px;
+        font-weight: bold;
+        border-radius: 3px;
+    `);
     node.className = "reddit_karma_ratio";
+
     seenUsers[username] = node;
+}
+
+/**
+ * Returns a color from green to red based on the ratio.
+ * - N/A (NaN): gray
+ * - 0 up to <10: gradient from green (0,255,0) to red (255,0,0)
+ * - >= 10: full red
+ */
+function getColorForRatio(ratioValue) {
+    if (isNaN(ratioValue)) {
+        // If ratio is 'N/A'
+        return "gray";
+    }
+    if (ratioValue >= 10) {
+        // If ratio is 10 or more, return red
+        return "rgb(255, 0, 0)";
+    }
+    // For ratios below 10, interpolate from green to red
+    // ratioValue = 0 => green (0,255,0), ratioValue = 10 => red (255,0,0)
+    const fraction = Math.max(0, Math.min(ratioValue, 10)) / 10;
+    const r = Math.round(255 * fraction);      // goes 0 -> 255
+    const g = Math.round(255 * (1 - fraction)); // goes 255 -> 0
+    return `rgb(${r}, ${g}, 0)`;
 }
 
 function nodeInTagline(tagline) {
@@ -137,6 +179,7 @@ function insertAfter(newNode, referenceNode) {
     referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
 }
 
+// Periodically scan for new user elements, unless rate-limited.
 setInterval(() => {
     if (!rateLimited) {
         main();
