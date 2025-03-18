@@ -1,25 +1,26 @@
 {
-    "manifest_version": 2,
-    "name": "Reddit Account Age",
-    "version": "0.3.0",
-    "description": "Displays the age of reddit accounts next to their username",
-    "content_scripts": [
-        {
-            "matches": ["*://*.reddit.com/*"],
-            "js": ["main.js"]
-        }
-    ],
-    "permissions": [
-        "*://*.reddit.com/*",
-        "storage"
-    ],
-    "options_ui": {
-        "page": "options.html",
-        "browser_style": true
-    },
-    "browser_specific_settings": {
-        "gecko": {
-            "id": "{6ef680e0-a61b-4769-8166-9d5d13e52646}"
-        }
+  "manifest_version": 2,
+  "name": "Reddit Karma Ratio",
+  "version": "1.0.0",
+  "description": "Displays the post-to-comment karma ratio for Reddit users next to their username",
+  "content_scripts": [
+    {
+      "matches": ["*://*.reddit.com/*"],
+      "js": ["main.js"],
+      "run_at": "document_end"
     }
+  ],
+  "permissions": [
+    "*://*.reddit.com/*",
+    "storage"
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "browser_style": true
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{6ef680e0-a61b-4769-8166-9d5d13e52646}"
+    }
+  }
 }
