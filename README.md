@@ -1,10 +1,10 @@
-# Reddit Bot Likelihood Analyzer
+# Reddit Repost Bot Tagger
 
-A Firefox extension that calculates Reddit post authors' karma ratios to assess their bot likelihood. The extension fetches a user's post and comment karma via Reddit's API, computes the ratio (post/comment), and classifies the result as **Low**, **Medium**, or **High** bot likelihood. Additionally, it offers an option to automatically filter out posts from users with a high likelihood of being bots.
+A Firefox extension that calculates Reddit post authors' karma ratios and account age to assess their karma-farming or repost bot likelihood. The extension fetches a user's post and comment karma via Reddit's API, computes the ratio (post/comment), and classifies the result as **Low**, **Medium**, or **High** bot likelihood. Additionally, it offers an option to automatically filter out posts from users with a high likelihood of being bots.
 
 ## Features
 
-- **Karma Ratio Calculation:** Retrieves a user's post and comment karma and calculates the ratio.
+- **Karma Ratio Calculation:** Retrieves a user's post and comment karma and calculates the ratio, and subtracts from that equation the Reddit account age.
 - **Bot Likelihood Classification:**  
   - **Low:** Ratio below 50  
   - **Medium:** Ratio between 50 and 100  
