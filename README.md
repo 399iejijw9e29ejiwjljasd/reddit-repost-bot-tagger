@@ -34,18 +34,6 @@ A Firefox extension that calculates Reddit post authors' karma ratios to assess 
    - Click **Load Temporary Add-on…** and select your `.xpi` file.
    - For persistent installation on release Firefox, you must sign the extension or use Firefox Developer Edition/Nightly (which allow disabling signature enforcement).
 
-### For Official Distribution
-
-1. **Create a Developer Account:**  
-   Sign up on [addons.mozilla.org](https://addons.mozilla.org).
-
-2. **Submit Your Extension:**  
-   - Go to the AMO Developer Hub.
-   - Upload your signed `.xpi` file.
-   - Fill in the required metadata (name, description, screenshots, etc.).
-   - Choose between a listed (public) or unlisted (direct link) release.
-   - Wait for Mozilla’s review process.
-
 ## Usage
 
 Once installed, the extension automatically scans Reddit pages for post authors, fetches their karma data, and displays a label next to their username indicating their **Bot Likelihood**:
