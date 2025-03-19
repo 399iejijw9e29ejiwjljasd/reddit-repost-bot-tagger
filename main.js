@@ -1,4 +1,5 @@
-// Modified main.js to show Bot Likelihood based on Karma Ratio
+// Modified main.js to show Bot Likelihood based on Karma Ratio,
+// and to auto-filter posts from users with high bot likelihood if enabled.
 // Derived from https://github.com/Mothrakk/NRMT
 
 const seenUsers = {};
@@ -9,6 +10,16 @@ const newMobileLoggedOutType = 'new-mobile-logged-out';
 const newOtherDesktopLoggedOutType = 'new-other-desktop-logged-out';
 let rateLimited = false;
 let rateLimitExpires = null;
+
+// Global variable for auto-filter option.
+let autoFilterEnabled = false;
+
+// Load the autoFilter setting from storage.
+browser.storage.sync.get('autoFilterEnabled')
+    .then((results) => {
+        autoFilterEnabled = results.autoFilterEnabled === true;
+    })
+    .catch((err) => console.error(err));
 
 function main() {
     const elements = getUserElements();
@@ -72,24 +83,17 @@ function main() {
  */
 function getUserElements() {
     let userElements = [];
-    // For old reddit, select taglines and filter later by checking container classes.
     if ((userElements = document.getElementsByClassName('tagline')).length !== 0) {
         return [oldRedditType, Array.from(userElements)];
-    }
-    // For new reddit, select only post author links.
-    else if ((userElements = document.querySelectorAll('a[data-testid="post_author_link"]')).length !== 0) {
+    } else if ((userElements = document.querySelectorAll('a[data-testid="post_author_link"]')).length !== 0) {
         return [newDesktopType, Array.from(userElements)];
-    }
-    else if ((userElements = document.querySelectorAll('a[class^="PostHeader__author"]')).length !== 0) {
+    } else if ((userElements = document.querySelectorAll('a[class^="PostHeader__author"]')).length !== 0) {
         return [newMobileLoggedInType, Array.from(userElements)];
-    }
-    else if ((userElements = document.querySelectorAll('a[slot="authorName"]')).length !== 0) {
+    } else if ((userElements = document.querySelectorAll('a[slot="authorName"]')).length !== 0) {
         return [newMobileLoggedOutType, Array.from(userElements)];
-    }
-    else if ((userElements = document.querySelectorAll('a[href^="/user/"]:not([aria-label$="avatar"])'))) {
+    } else if ((userElements = document.querySelectorAll('a[href^="/user/"]:not([aria-label$="avatar"])'))) {
         return [newOtherDesktopLoggedOutType, Array.from(userElements)];
-    }
-    else {
+    } else {
         return null;
     }
 }
@@ -120,7 +124,7 @@ function processUser(username, userElement) {
             .then((data) => {
                 const linkKarma = data?.data?.link_karma ?? 0;
                 const commentKarma = data?.data?.comment_karma ?? 0;
-                // Only show the Bot Likelihood if post karma is at least 100,000.
+                // Only proceed if post karma is at least 100,000.
                 if (linkKarma < 100000) {
                     return;
                 }
@@ -135,6 +139,14 @@ function processUser(username, userElement) {
                     label = "Medium";
                 } else {
                     label = "High";
+                }
+                // If auto-filtering is enabled and bot likelihood is High, hide the post.
+                if (autoFilterEnabled && label === "High") {
+                    const postContainer = getPostContainer(userElement);
+                    if (postContainer) {
+                        postContainer.style.display = "none";
+                    }
+                    return;
                 }
                 createKarmaNode(username, label, numericRatio);
             })
@@ -166,9 +178,9 @@ function createKarmaNode(username, label, numericRatio) {
 /**
  * Returns a color based on the numeric ratio:
  * - NaN: gray
- * - Ratio less than 50: green
- * - Ratio from 50 up to 100: orange
- * - Ratio 100 or greater: red
+ * - Ratio < 50: green
+ * - Ratio 50 to <100: orange
+ * - Ratio >= 100: red
  */
 function getColorForRatio(ratioValue) {
     if (isNaN(ratioValue)) {
@@ -181,6 +193,18 @@ function getColorForRatio(ratioValue) {
     } else {
         return "rgb(255, 0, 0)"; // red
     }
+}
+
+/**
+ * Attempts to find the post container element to hide when auto-filtering.
+ * This function checks for common selectors used on both old and new Reddit.
+ */
+function getPostContainer(userElement) {
+    let container = userElement.closest('.thing');
+    if (!container) {
+        container = userElement.closest('[data-testid="post-container"]');
+    }
+    return container;
 }
 
 function nodeInTagline(tagline) {
