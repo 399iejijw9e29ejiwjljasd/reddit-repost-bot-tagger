@@ -4,7 +4,7 @@ A Firefox extension that calculates Reddit post authors' karma ratios and accoun
 
 ## Features
 
-- **Karma Ratio Calculation:** Retrieves a user's post and comment karma and calculates the ratio, and subtracts from that equation the Reddit account age.
+- **Karma Ratio Calculation:** For any users with >100,000 post karma, it retrieves a user's post and comment karma and calculates the ratio, and subtracts from that equation the Reddit account age.
 - **Bot Likelihood Classification:**  
   - **Low:** Ratio below 50  
   - **Medium:** Ratio between 50 and 100  
