@@ -1,4 +1,4 @@
-// Modified main.js to show Karma Ratio with color highlighting (green to red).
+// Modified main.js to show Bot Likelihood based on Karma Ratio
 // Derived from https://github.com/Mothrakk/NRMT
 
 const seenUsers = {};
@@ -18,6 +18,10 @@ function main() {
     }
     const [type, userElements] = elements;
     userElements.forEach((element) => {
+        // Only process post authors – skip if the element is inside a comment container.
+        if (element.closest('.comment') || element.closest('[data-testid="comment"]')) {
+            return;
+        }
         let tagline = null;
         let userElement = null;
         let username = null;
@@ -68,17 +72,24 @@ function main() {
  */
 function getUserElements() {
     let userElements = [];
+    // For old reddit, select taglines and filter later by checking container classes.
     if ((userElements = document.getElementsByClassName('tagline')).length !== 0) {
         return [oldRedditType, Array.from(userElements)];
-    } else if ((userElements = document.querySelectorAll('a[data-testid="post_author_link"], a[data-testid="comment_author_link"]')).length !== 0) {
+    }
+    // For new reddit, select only post author links.
+    else if ((userElements = document.querySelectorAll('a[data-testid="post_author_link"]')).length !== 0) {
         return [newDesktopType, Array.from(userElements)];
-    } else if ((userElements = document.querySelectorAll('a[class^="PostHeader__author"], a[class^="CommentHeader__username"]')).length !== 0) {
+    }
+    else if ((userElements = document.querySelectorAll('a[class^="PostHeader__author"]')).length !== 0) {
         return [newMobileLoggedInType, Array.from(userElements)];
-    } else if ((userElements = document.querySelectorAll('a[slot="authorName"]')).length !== 0) {
+    }
+    else if ((userElements = document.querySelectorAll('a[slot="authorName"]')).length !== 0) {
         return [newMobileLoggedOutType, Array.from(userElements)];
-    } else if ((userElements = document.querySelectorAll('a[href^="/user/"]:not([aria-label$="avatar"])'))) {
+    }
+    else if ((userElements = document.querySelectorAll('a[href^="/user/"]:not([aria-label$="avatar"])'))) {
         return [newOtherDesktopLoggedOutType, Array.from(userElements)];
-    } else {
+    }
+    else {
         return null;
     }
 }
@@ -107,15 +118,25 @@ function processUser(username, userElement) {
                 }
             })
             .then((data) => {
-                // Extract karma values from the JSON response
                 const linkKarma = data?.data?.link_karma ?? 0;
                 const commentKarma = data?.data?.comment_karma ?? 0;
-                // Compute the ratio; if comment karma is zero, display "N/A"
-                let ratio = (commentKarma === 0)
-                    ? 'N/A'
-                    : (linkKarma / commentKarma).toFixed(2);
-
-                createKarmaNode(username, ratio);
+                // Only show the Bot Likelihood if post karma is at least 100,000.
+                if (linkKarma < 100000) {
+                    return;
+                }
+                // Compute the ratio; if comment karma is zero, we get NaN.
+                const numericRatio = (commentKarma === 0) ? NaN : (linkKarma / commentKarma);
+                let label;
+                if (isNaN(numericRatio)) {
+                    label = "N/A";
+                } else if (numericRatio < 50) {
+                    label = "Low";
+                } else if (numericRatio < 100) {
+                    label = "Medium";
+                } else {
+                    label = "High";
+                }
+                createKarmaNode(username, label, numericRatio);
             })
             .catch((error) => {
                 console.error(error);
@@ -124,17 +145,12 @@ function processUser(username, userElement) {
 }
 
 /**
- * Creates the highlight node for the karma ratio and sets the color from green to red.
+ * Creates the highlight node for Bot Likelihood and sets the background color based on numeric ratio.
  */
-function createKarmaNode(username, ratio) {
+function createKarmaNode(username, label, numericRatio) {
     const node = document.createElement('span');
-    node.appendChild(document.createTextNode(`Karma Ratio: ${ratio}`));
-
-    // Convert ratio to a float if not 'N/A'
-    const ratioValue = parseFloat(ratio);
-    const highlightColor = getColorForRatio(ratioValue);
-
-    // We'll use background color for highlighting and white text for readability
+    node.appendChild(document.createTextNode(`Bot Likelihood: ${label}`));
+    const highlightColor = getColorForRatio(numericRatio);
     node.setAttribute('style', `
         background-color: ${highlightColor};
         color: #fff;
@@ -144,31 +160,27 @@ function createKarmaNode(username, ratio) {
         border-radius: 3px;
     `);
     node.className = "reddit_karma_ratio";
-
     seenUsers[username] = node;
 }
 
 /**
- * Returns a color from green to red based on the ratio.
- * - N/A (NaN): gray
- * - 0 up to <10: gradient from green (0,255,0) to red (255,0,0)
- * - >= 10: full red
+ * Returns a color based on the numeric ratio:
+ * - NaN: gray
+ * - Ratio less than 50: green
+ * - Ratio from 50 up to 100: orange
+ * - Ratio 100 or greater: red
  */
 function getColorForRatio(ratioValue) {
     if (isNaN(ratioValue)) {
-        // If ratio is 'N/A'
         return "gray";
     }
-    if (ratioValue >= 10) {
-        // If ratio is 10 or more, return red
-        return "rgb(255, 0, 0)";
+    if (ratioValue < 50) {
+        return "rgb(0, 200, 0)"; // green
+    } else if (ratioValue < 100) {
+        return "rgb(255, 165, 0)"; // orange
+    } else {
+        return "rgb(255, 0, 0)"; // red
     }
-    // For ratios below 10, interpolate from green to red
-    // ratioValue = 0 => green (0,255,0), ratioValue = 10 => red (255,0,0)
-    const fraction = Math.max(0, Math.min(ratioValue, 10)) / 10;
-    const r = Math.round(255 * fraction);      // goes 0 -> 255
-    const g = Math.round(255 * (1 - fraction)); // goes 255 -> 0
-    return `rgb(${r}, ${g}, 0)`;
 }
 
 function nodeInTagline(tagline) {
@@ -179,7 +191,7 @@ function insertAfter(newNode, referenceNode) {
     referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
 }
 
-// Periodically scan for new user elements, unless rate-limited.
+// Periodically scan for new post author elements, unless rate-limited.
 setInterval(() => {
     if (!rateLimited) {
         main();
