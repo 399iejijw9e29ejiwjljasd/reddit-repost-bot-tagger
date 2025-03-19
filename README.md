@@ -61,5 +61,5 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## Acknowledgments
 
-- Inspired by the [NRMT extension](https://github.com/Mothrakk/NRMT).
+- Inspired by [Reddit Age](]https://github.com/golf1052/reddit-age).
 - Thanks to the Reddit API and Mozilla for providing robust extension development tools.
