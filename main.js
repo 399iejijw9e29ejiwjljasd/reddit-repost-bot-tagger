@@ -1,6 +1,5 @@
-// Modified main.js to show Bot Likelihood based on Karma Ratio,
-// and to auto-filter posts from users with high bot likelihood if enabled.
-// Derived from https://github.com/Mothrakk/NRMT
+// Modified main.js to show Bot Likelihood with account age adjustment and auto-filtering.
+// Derived from https://github.com/golf1052/reddit-age
 
 const seenUsers = {};
 const oldRedditType = 'old';
@@ -124,23 +123,31 @@ function processUser(username, userElement) {
             .then((data) => {
                 const linkKarma = data?.data?.link_karma ?? 0;
                 const commentKarma = data?.data?.comment_karma ?? 0;
+                const createdAt = data?.data?.created_utc; // Unix timestamp (seconds)
                 // Only proceed if post karma is at least 100,000.
                 if (linkKarma < 100000) {
                     return;
                 }
-                // Compute the ratio; if comment karma is zero, we get NaN.
-                const numericRatio = (commentKarma === 0) ? NaN : (linkKarma / commentKarma);
+                // Compute the original ratio; if comment karma is zero, we get NaN.
+                const originalRatio = (commentKarma === 0) ? NaN : (linkKarma / commentKarma);
+                let finalRatio = originalRatio;
+                // Adjust the ratio: subtract 5 points per year of account age.
+                if (!isNaN(originalRatio) && createdAt) {
+                    const currentTimeSec = Date.now() / 1000;
+                    const accountAgeYears = (currentTimeSec - createdAt) / 31557600; // seconds in a year
+                    finalRatio = originalRatio - (5 * accountAgeYears);
+                }
                 let label;
-                if (isNaN(numericRatio)) {
+                if (isNaN(finalRatio)) {
                     label = "N/A";
-                } else if (numericRatio < 50) {
+                } else if (finalRatio < 50) {
                     label = "Low";
-                } else if (numericRatio < 100) {
+                } else if (finalRatio < 100) {
                     label = "Medium";
                 } else {
                     label = "High";
                 }
-                // If auto-filtering is enabled and bot likelihood is High, hide the post.
+                // Auto-filter: if enabled and bot likelihood is High, hide the post.
                 if (autoFilterEnabled && label === "High") {
                     const postContainer = getPostContainer(userElement);
                     if (postContainer) {
@@ -148,7 +155,7 @@ function processUser(username, userElement) {
                     }
                     return;
                 }
-                createKarmaNode(username, label, numericRatio);
+                createKarmaNode(username, label, finalRatio);
             })
             .catch((error) => {
                 console.error(error);
@@ -157,12 +164,12 @@ function processUser(username, userElement) {
 }
 
 /**
- * Creates the highlight node for Bot Likelihood and sets the background color based on numeric ratio.
+ * Creates the highlight node for Bot Likelihood and sets the background color based on final ratio.
  */
-function createKarmaNode(username, label, numericRatio) {
+function createKarmaNode(username, label, finalRatio) {
     const node = document.createElement('span');
     node.appendChild(document.createTextNode(`Bot Likelihood: ${label}`));
-    const highlightColor = getColorForRatio(numericRatio);
+    const highlightColor = getColorForRatio(finalRatio);
     node.setAttribute('style', `
         background-color: ${highlightColor};
         color: #fff;
@@ -176,7 +183,7 @@ function createKarmaNode(username, label, numericRatio) {
 }
 
 /**
- * Returns a color based on the numeric ratio:
+ * Returns a color based on the final ratio:
  * - NaN: gray
  * - Ratio < 50: green
  * - Ratio 50 to <100: orange
@@ -197,7 +204,6 @@ function getColorForRatio(ratioValue) {
 
 /**
  * Attempts to find the post container element to hide when auto-filtering.
- * This function checks for common selectors used on both old and new Reddit.
  */
 function getPostContainer(userElement) {
     let container = userElement.closest('.thing');
