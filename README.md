@@ -15,6 +15,8 @@ A Firefox extension that calculates Reddit post authors' karma ratios and accoun
 
 ## Installation
 
+Install from the Firefox add-ons site: https://addons.mozilla.org/en-US/firefox/addon/reddit-repost-bot-tagger/
+
 ### For Personal Use (Persistent Installation)
 
 1. **Organize Your Extension Files:**  
