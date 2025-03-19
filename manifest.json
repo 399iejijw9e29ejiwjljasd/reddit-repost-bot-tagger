@@ -3,6 +3,8 @@
   "name": "Reddit Karma Ratio",
   "version": "1.0.0",
   "description": "Displays the post-to-comment karma ratio for Reddit users next to their username",
+  "author": "/u/bgroins",
+  "homepage_url": "https://github.com/399iejijw9e29ejiwjljasd/reddit-karma-ratio-filter",
   "content_scripts": [
     {
       "matches": ["*://*.reddit.com/*"],
