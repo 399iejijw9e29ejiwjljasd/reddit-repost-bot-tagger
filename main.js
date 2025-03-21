@@ -1,4 +1,5 @@
-// Modified main.js to show Bot Likelihood with account age adjustment and auto-filtering.
+// Modified main.js for Reddit Repost Bot Tagger with account age adjustment, auto-filtering,
+// and waiting for settings to load.
 // Derived from https://github.com/golf1052/reddit-age
 
 const seenUsers = {};
@@ -10,10 +11,15 @@ const newOtherDesktopLoggedOutType = 'new-other-desktop-logged-out';
 let rateLimited = false;
 let rateLimitExpires = null;
 
-// Global variable for auto-filter option.
+// Global settings, to be loaded from storage.
+let featureEnabled = false;
 let autoFilterEnabled = false;
 
 function main() {
+    // If the overall feature is disabled, do nothing.
+    if (!featureEnabled) {
+        return;
+    }
     const elements = getUserElements();
     if (elements === null) {
         console.error('Could not determine reddit type or could not find users.');
@@ -28,51 +34,35 @@ function main() {
         let tagline = null;
         let userElement = null;
         let username = null;
-
         if (type === oldRedditType) {
-            // old.reddit.com (desktop and mobile)
             tagline = element;
             userElement = tagline.getElementsByClassName('author')[0];
-            if (!userElement) {
-                return;
-            }
+            if (!userElement) return;
             username = userElement.innerText;
         } else if (type === newDesktopType) {
-            // new.reddit.com (desktop and direct link mobile)
             userElement = element.parentNode.parentNode;
             tagline = userElement.parentNode;
             username = element.getAttribute('href').split('/')[2];
         } else if (type === newMobileLoggedInType) {
-            // new.reddit.com (logged in mobile only)
             userElement = element;
             tagline = userElement.parentNode;
             username = element.getAttribute('href').split('/')[2];
         } else if (type === newMobileLoggedOutType) {
-            // new.reddit.com (logged out mobile only)
             userElement = element;
             tagline = userElement.parentNode.parentNode;
             username = element.getAttribute('href').split('/')[2];
         } else if (type === newOtherDesktopLoggedOutType) {
-            // some other new reddit type (logged out)
             userElement = element.parentNode;
             tagline = element.parentNode.parentNode;
             username = element.getAttribute('href').split('/')[2];
         } else {
             return;
         }
-
-        if (nodeInTagline(tagline)) {
-            return;
-        }
+        if (nodeInTagline(tagline)) return;
         processUser(username, userElement);
     });
 }
 
-/**
- * Returns an array with 2 items:
- *  - item 1 is a string denoting the user element type
- *  - item 2 is an array of user elements
- */
 function getUserElements() {
     let userElements = [];
     if ((userElements = document.getElementsByClassName('tagline')).length !== 0) {
@@ -83,7 +73,7 @@ function getUserElements() {
         return [newMobileLoggedInType, Array.from(userElements)];
     } else if ((userElements = document.querySelectorAll('a[slot="authorName"]')).length !== 0) {
         return [newMobileLoggedOutType, Array.from(userElements)];
-    } else if ((userElements = document.querySelectorAll('a[href^="/user/"]:not([aria-label$="avatar"])'))) {
+    } else if ((userElements = document.querySelectorAll('a[href^="/user/"]:not([aria-label$="avatar"])')).length !== 0) {
         return [newOtherDesktopLoggedOutType, Array.from(userElements)];
     } else {
         return null;
@@ -91,9 +81,7 @@ function getUserElements() {
 }
 
 function processUser(username, userElement) {
-    if (username === '[deleted]') {
-        return;
-    }
+    if (username === '[deleted]') return;
     if (username in seenUsers) {
         insertAfter(seenUsers[username].cloneNode(true), userElement);
     } else {
@@ -118,9 +106,7 @@ function processUser(username, userElement) {
                 const commentKarma = data?.data?.comment_karma ?? 0;
                 const createdAt = data?.data?.created_utc; // Unix timestamp in seconds
                 // Only proceed if post karma is at least 100,000.
-                if (linkKarma < 100000) {
-                    return;
-                }
+                if (linkKarma < 100000) return;
                 // Compute the original ratio; if comment karma is zero, result is NaN.
                 const originalRatio = (commentKarma === 0) ? NaN : (linkKarma / commentKarma);
                 let finalRatio = originalRatio;
@@ -156,9 +142,6 @@ function processUser(username, userElement) {
     }
 }
 
-/**
- * Creates the highlight node for Bot Likelihood and sets the background color based on the final ratio.
- */
 function createKarmaNode(username, label, finalRatio) {
     const node = document.createElement('span');
     node.appendChild(document.createTextNode(`Bot Likelihood: ${label}`));
@@ -175,29 +158,13 @@ function createKarmaNode(username, label, finalRatio) {
     seenUsers[username] = node;
 }
 
-/**
- * Returns a color based on the final ratio:
- * - NaN: gray
- * - Ratio < 50: green
- * - Ratio 50 to <100: orange
- * - Ratio >= 100: red
- */
 function getColorForRatio(ratioValue) {
-    if (isNaN(ratioValue)) {
-        return "gray";
-    }
-    if (ratioValue < 50) {
-        return "rgb(0, 200, 0)"; // green
-    } else if (ratioValue < 100) {
-        return "rgb(255, 165, 0)"; // orange
-    } else {
-        return "rgb(255, 0, 0)"; // red
-    }
+    if (isNaN(ratioValue)) return "gray";
+    if (ratioValue < 50) return "rgb(0, 200, 0)";       // green
+    else if (ratioValue < 100) return "rgb(255, 165, 0)"; // orange
+    else return "rgb(255, 0, 0)";                         // red
 }
 
-/**
- * Attempts to find the post container element to hide when auto-filtering.
- */
 function getPostContainer(userElement) {
     let container = userElement.closest('.thing');
     if (!container) {
@@ -225,13 +192,20 @@ function startScanning() {
     }, 1000);
 }
 
-// Wait for storage settings to load, then start scanning.
-browser.storage.sync.get('autoFilterEnabled')
+// Wait for settings to load before starting the scan.
+browser.storage.sync.get(["featureEnabled", "autoFilterEnabled"])
     .then((results) => {
+        featureEnabled = results.featureEnabled === true;
         autoFilterEnabled = results.autoFilterEnabled === true;
-        startScanning();
+        if (featureEnabled) {
+            console.log("Repost Bot Tagger is enabled. Starting scan...");
+            startScanning();
+        } else {
+            console.log("Repost Bot Tagger is disabled.");
+        }
     })
     .catch((err) => {
-        console.error(err);
-        startScanning(); // Start scanning even if there's an error.
+        console.error("Error loading settings:", err);
+        // As a fallback, you might want to start scanning anyway:
+        startScanning();
     });
