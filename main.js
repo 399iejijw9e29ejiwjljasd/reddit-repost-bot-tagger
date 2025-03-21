@@ -13,13 +13,6 @@ let rateLimitExpires = null;
 // Global variable for auto-filter option.
 let autoFilterEnabled = false;
 
-// Load the autoFilter setting from storage.
-browser.storage.sync.get('autoFilterEnabled')
-    .then((results) => {
-        autoFilterEnabled = results.autoFilterEnabled === true;
-    })
-    .catch((err) => console.error(err));
-
 function main() {
     const elements = getUserElements();
     if (elements === null) {
@@ -123,12 +116,12 @@ function processUser(username, userElement) {
             .then((data) => {
                 const linkKarma = data?.data?.link_karma ?? 0;
                 const commentKarma = data?.data?.comment_karma ?? 0;
-                const createdAt = data?.data?.created_utc; // Unix timestamp (seconds)
+                const createdAt = data?.data?.created_utc; // Unix timestamp in seconds
                 // Only proceed if post karma is at least 100,000.
                 if (linkKarma < 100000) {
                     return;
                 }
-                // Compute the original ratio; if comment karma is zero, we get NaN.
+                // Compute the original ratio; if comment karma is zero, result is NaN.
                 const originalRatio = (commentKarma === 0) ? NaN : (linkKarma / commentKarma);
                 let finalRatio = originalRatio;
                 // Adjust the ratio: subtract 5 points per year of account age.
@@ -164,7 +157,7 @@ function processUser(username, userElement) {
 }
 
 /**
- * Creates the highlight node for Bot Likelihood and sets the background color based on final ratio.
+ * Creates the highlight node for Bot Likelihood and sets the background color based on the final ratio.
  */
 function createKarmaNode(username, label, finalRatio) {
     const node = document.createElement('span');
@@ -221,14 +214,24 @@ function insertAfter(newNode, referenceNode) {
     referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
 }
 
-// Periodically scan for new post author elements, unless rate-limited.
-setInterval(() => {
-    if (!rateLimited) {
-        main();
-    } else {
-        if (rateLimitExpires && Date.now() > rateLimitExpires) {
+function startScanning() {
+    setInterval(() => {
+        if (!rateLimited) {
+            main();
+        } else if (rateLimitExpires && Date.now() > rateLimitExpires) {
             rateLimited = false;
             rateLimitExpires = null;
         }
-    }
-}, 1000);
+    }, 1000);
+}
+
+// Wait for storage settings to load, then start scanning.
+browser.storage.sync.get('autoFilterEnabled')
+    .then((results) => {
+        autoFilterEnabled = results.autoFilterEnabled === true;
+        startScanning();
+    })
+    .catch((err) => {
+        console.error(err);
+        startScanning(); // Start scanning even if there's an error.
+    });
