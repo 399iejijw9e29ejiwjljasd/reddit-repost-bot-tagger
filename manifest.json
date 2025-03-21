@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Reddit Karma Farming Bot Tagger",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Displays the post-to-comment karma ratio for Reddit users next to their username",
   "author": "/u/bgroins",
   "homepage_url": "https://github.com/399iejijw9e29ejiwjljasd/reddit-repost-bot-tagger",
